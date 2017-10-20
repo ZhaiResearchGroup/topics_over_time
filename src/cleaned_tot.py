@@ -103,18 +103,24 @@ class TopicsOverTime:
     """
 
     def InitializeParameters(self, documents, timestamps, dictionary):
+        # initialize important numbers
         num_topics = 10
         num_documents = len(documents)
         num_words = len(dictionary)
         len_per_doc = [len(doc) for doc in documents]
 
+        # parameters for dirichlet distribution for each topic
         dirichlet_alpha = [50.0/num_topics] * num_topics
+
+        # parameters for dirichlet distribution for each word
         dirichlet_beta = [0.1] * num_words
 
+        # beta distribution for each topic
         beta_dist_params = [[1, 1]] * num_topics
         beta_dist = [scipy.special.beta(beta_dist_params[topic][0], beta_dist_params[topic][1]) for topic in num_topics]
 
-        word_to_index_dict = {dictionary[i]: i for i in range(num_words)}
+        # map each word to a unique id (its index in the dictionary)
+        word_to_id = {dictionary[i]: i for i in range(num_words)}
 
         z = [None] * num_documents
         t = [None] * num_documents
@@ -123,23 +129,24 @@ class TopicsOverTime:
         for doc_index in range(num_documents):
             doc_length = len_per_doc[doc_index]
 
-            # randomly assign topics for each word in each document
+            # randomly assign topics for each word in the document
             z[doc_index] = [randrange(0, num_topics) for _ in range(doc_length)]
 
-            # assign times to each word in each document
+            # assign times to each word in the document
             timestamp = timestamps[doc_index]
             t[doc_index] = [timestamp] * doc_length
 
-            # represent each document using word ids instead of words
+            # represent the document using word ids instead of words
             document = documents[doc_index]
-            w[doc_index] = [word_to_index_dict[document[i]] for i in range(doc_length)]
+            w[doc_index] = [word_to_id[document[i]] for i in range(doc_length)]
 
+            # the number of words found in each topic in the document
             m[doc_index] = [0] * num_topics
 
-        n = [None] * num_topics
-        for topic_index in range(num_topics):
-            n[topic_index] = [0] * num_words
+        # number of each word found in each topic
+        n = [[0] * num_words] * num_topics
 
+        # number of words found in each topic
         n_sum = [0] * num_topics
 
         # set parameters
@@ -155,7 +162,7 @@ class TopicsOverTime:
             'beta_sum': sum(dirichlet_beta),
             'psi': beta_dist_params,
             'betafunc_psi': beta_dist,
-            'word_id': word_to_index_dict,
+            'word_id': word_to_id,
             'word_token': dictionary,
             'z': z,
             't': t,
