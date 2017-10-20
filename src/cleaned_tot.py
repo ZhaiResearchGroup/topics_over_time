@@ -25,7 +25,7 @@ from math import log
 
 
 class TopicsOverTime:
-    
+
     """
     parameters = {
         documents_path: String,         # path to a file with one document per line, sorted by time
@@ -98,37 +98,73 @@ class TopicsOverTime:
         n: [[Number]],                  # list of number of each word found for each topic
         n_sum: [Number],                # list of number of words found for each topic
     }
-    
+
     (parameters is the return value)
     """
-                
+
     def InitializeParameters(self, documents, timestamps, dictionary):
-        par = {}                                        # dictionary of all parameters
-        par['dataset'] = 'pnas'                            # dataset name
-        par['max_iterations'] = 100                        # max number of iterations in gibbs sampling
-        par['T'] = 10                                    # number of topics
-        par['D'] = len(documents)                        # number of documents
-        par['V'] = len(dictionary)                       # number of words
-        par['N'] = [len(doc) for doc in documents]       # list of len of each docuent
-        par['alpha'] = [50.0/par['T'] for _ in range(par['T'])] # alpha param for each 
-        par['beta'] = [0.1 for _ in range(par['V'])]            
-        par['beta_sum'] = sum(par['beta'])
-        par['psi'] = [[1 for _ in range(2)] for _ in range(par['T'])]
-        par['betafunc_psi'] = [scipy.special.beta( par['psi'][t][0], par['psi'][t][1] ) for t in range(par['T'])]
-        par['word_id'] = {dictionary[i]: i for i in range(len(dictionary))}
-        par['word_token'] = dictionary
-        
-        # randomly assign topics for each word in each document
-        par['z'] = [[random.randrange(0,par['T']) for _ in range(par['N'][d])] for d in range(par['D'])]
-        
-        # assign times to each word in each document
-        par['t'] = [[timestamps[d] for _ in range(par['N'][d])] for d in range(par['D'])]
-        
-        # represent documents as word ids instead of words
-        par['w'] = [[par['word_id'][documents[d][i]] for i in range(par['N'][d])] for d in range(par['D'])]
-        par['m'] = [[0 for t in range(par['T'])] for d in range(par['D'])]
-        par['n'] = [[0 for v in range(par['V'])] for t in range(par['T'])]
-        par['n_sum'] = [0 for t in range(par['T'])]
+        num_topics = 10
+        num_documents = len(documents)
+        num_words = len(dictionary)
+        len_per_doc = [len(doc) for doc in documents]
+
+        dirichlet_alpha = [50.0/num_topics] * num_topics
+        dirichlet_beta = [0.1] * num_words
+
+        beta_dist_params = [[1, 1]] * num_topics
+        beta_dist = [scipy.special.beta(beta_dist_params[topic][0], beta_dist_params[topic][1]) for topic in num_topics]
+
+        word_to_index_dict = {dictionary[i]: i for i in range(num_words)}
+
+        z = [None] * num_documents
+        t = [None] * num_documents
+        w = [None] * num_documents
+        m = [None] * num_documents
+        for doc_index in range(num_documents):
+            doc_length = len_per_doc[doc_index]
+
+            # randomly assign topics for each word in each document
+            z[doc_index] = [randrange(0, num_topics) for _ in range(doc_length)]
+
+            # assign times to each word in each document
+            timestamp = timestamps[doc_index]
+            t[doc_index] = [timestamp] * doc_length
+
+            # represent each document using word ids instead of words
+            document = documents[doc_index]
+            w[doc_index] = [word_to_index_dict[document[i]] for i in range(doc_length)]
+
+            m[doc_index] = [0] * num_topics
+
+        n = [None] * num_topics
+        for topic_index in range(num_topics):
+            n[topic_index] = [0] * num_words
+
+        n_sum = [0] * num_topics
+
+        # set parameters
+        par = {
+            'dataset': 'pnas',
+            'max_iterations': 100,
+            'T': num_topics,
+            'D': num_documents,
+            'V': num_words,
+            'N': len_per_doc,
+            'alpha': dirichlet_alpha,
+            'beta': dirichlet_beta,
+            'beta_sum': sum(dirichlet_beta),
+            'psi': beta_dist_params,
+            'betafunc_psi': beta_dist,
+            'word_id': word_to_index_dict,
+            'word_token': dictionary,
+            'z': z,
+            't': t,
+            'w': w,
+            'm': m,
+            'n': n,
+            'n_sum': n_sum,
+        }
+
         np.set_printoptions(threshold=np.inf)
         np.seterr(divide='ignore', invalid='ignore')
         self.CalculateCounts(par)
@@ -233,7 +269,7 @@ class TopicsOverTime:
                         topic_probabilities = [1.0/par['T'] for _ in range(par['T'])]
                     else:
                         topic_probabilities = [p/sum_topic_probabilities for p in topic_probabilities]
-                    
+
                     new_topic = list(np.random.multinomial(1, topic_probabilities, size=1)[0]).index(1)
                     par['z'][d][i] = new_topic
                     par['m'][d][new_topic] += 1
