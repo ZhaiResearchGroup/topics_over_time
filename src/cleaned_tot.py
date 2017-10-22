@@ -250,6 +250,85 @@ class TopicsOverTime:
 
         return np.matrix(phi)
 
+    """
+    parameters = {
+        dataset: String,                # name of the dataset
+        max_iterations: Number,         # max number of iterations in gibbs sampling
+        T: Number,                      # number of topics
+        D: Number,                      # number of documents
+        V: Number,                      # number of words
+        N: [Number],                    # list of length of each document (number of words in each document)
+        alpha: [Number],                # list of alpha parameter (for Dirichlet distribution of topics) for each topic
+        beta: [Number],                 # list of beta parameter (for Dirichlet distribution of words) for each word
+        beta_sum: Number,               # sum of all the betas
+        psi: [                          # list of the paremeters for the beta distributions for each topic
+            [1: a, 2: b],               # a, b are used for beta(a, b)
+        ],
+        betafunc_psi:                   # SciPy beta distributions for each topic
+        word_id: {                      # dictionary mapping each word to its id (which is its index in the dictionary)
+            word: Number,
+        },
+        word_token: set,                # set of all words (literally the dictionary)
+        z: [[Number]],                  # list of topics associated with each word in each document
+        t: [[Number]],                  # list of timestamps associated with each word in each document
+        w: [[Number]],                  # list of word ids associated with each word in each document
+        m: [[Number]],                  # list of number of words found for each topic in each document
+        n: [[Number]],                  # list of number of each word found for each topic
+        n_sum: [Number],                # list of number of words found for each topic
+    }
+    """
+    def TopicsOverTimeGibbsSamplingRefactor(self, par):
+        num_iterations = par['max_iterations']
+        num_documents = par['D']
+        len_per_doc = par['N']
+        word_ids_per_doc = par['w']
+        timestamps_per_doc = par['t']
+        topic_count_per_doc = par['z']
+
+        for iteration in range(num_iterations):
+            for doc_i in range(num_documents):
+                doc_len = len_per_doc[doc_i]
+                for word_i in range(doc_len):
+                    word = word_ids_per_doc[doc_i][word_i]
+                    timestamp = timestamps_per_doc[doc_i][word_i]
+
+                    old_topic = topic_count_per_doc[doc_i][word_i]
+                    new_topic = sample_topic(doc_i, word, timestamp, par)
+
+                    if old_topic != new_topic:
+                        # remove old topic from params
+                        par['m'][doc_i][old_topic] -= 1
+                        par['n'][old_topic][word] -= 1
+                        par['n_sum'][old_topic] -= 1
+
+                        # update params for new topic
+                        par['z'][d][i] = new_topic
+                        par['m'][d][new_topic] += 1
+                        par['n'][new_topic][word_di] += 1
+                        par['n_sum'][new_topic] += 1
+
+            # TODO: refactor from here
+            par['psi'] = self.GetMethodOfMomentsEstimatesForPsi(par)
+            par['betafunc_psi'] = [scipy.special.beta( par['psi'][t][0], par['psi'][t][1] ) for t in range(par['T'])]
+
+        par['m'], par['n'] = self.ComputePosteriorEstimatesOfThetaAndPhi(par)
+        return par['m'], par['n'], par['psi']
+
+
+    def sample_topic(self, doc_i, word, timestamp, par):
+        num_topics = par['T']
+
+        topic_probabilities = topic_probability(np.ones(num_topics))
+        sum_topic_probabilities = sum(topic_probabilities)
+
+    def topic_probability(topic, doc_i, word, timestamp, par):
+        beta_dist_params = par['psi'][topic]
+
+        topic_count_for_doc = par['m'][doc_i]
+        num_words_found_for_topic = topic_count_for_doc[topic]
+
+        dirichlet_alpha = par['alpha'][topic]
+
     def TopicsOverTimeGibbsSampling(self, par):
         for iteration in range(par['max_iterations']):
             for d in range(par['D']):
