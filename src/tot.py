@@ -22,6 +22,7 @@ import numpy as np
 import scipy.stats
 import pickle
 from math import log
+from copy import deepcopy
 
 class TopicsOverTime:
 	def GetPnasCorpusAndDictionary(self, documents_path, timestamps_path, stopwords_path):
@@ -101,6 +102,12 @@ class TopicsOverTime:
 		psi = [[1 for _ in range(2)] for _ in range(len(topic_timestamps))]
 		for i in range(len(topic_timestamps)):
 			current_topic_timestamps = topic_timestamps[i]
+
+			# scale current_topic_timestamps to be between 0 and 1
+			min_timestamp = min(current_topic_timestamps)
+			max_timestamp = max(current_topic_timestamps)
+			current_topic_timestamps = [((timestamp - min_timestamp)/(max_timestamp - min_timestamp)) for timestamp in current_topic_timestamps]
+
 			timestamp_mean = np.mean(current_topic_timestamps)
 			timestamp_var = np.var(current_topic_timestamps)
 			if timestamp_var == 0:
@@ -182,7 +189,7 @@ class TopicsOverTime:
 						topic_probabilities = [1.0/par['T'] for _ in range(par['T'])]
 					else:
 						topic_probabilities = [p/sum_topic_probabilities for p in topic_probabilities]
-					
+
 					new_topic = list(np.random.multinomial(1, topic_probabilities, size=1)[0]).index(1)
 					par['z'][d][i] = new_topic
 					par['m'][d][new_topic] += 1
